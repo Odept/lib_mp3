@@ -1,5 +1,6 @@
 CC = g++
-CFLAGS  = -g -Wall -std=c++11
+CFLAGS = -std=c++11 -Wall -Wextra -Werror
+CFLAGS += -g3
 
 AR = ar
 ARFLAGS = rvs

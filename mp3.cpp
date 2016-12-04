@@ -39,7 +39,7 @@ public:
 
 	bool							isCononical	() const final override { return m_mpeg && !m_warnings; }
 
-	bool							serialize	(const std::string& f_path) final override { ASSERT(!"Not implemented"); }
+	bool							serialize	(const std::string& /*f_path*/) final override { ASSERT(!"Not implemented"); }
 
 private:
 	explicit CMP3(): m_warnings(0) {}
@@ -152,7 +152,7 @@ CMP3::CMP3(const std::string& f_path):
 	pFileBuf->pubseekpos(0, file.in);
 
 	std::vector<uchar> data(size);
-	size_t read = pFileBuf->sgetn(reinterpret_cast<char*>(&data[0]), size);
+	auto read = pFileBuf->sgetn(reinterpret_cast<char*>(&data[0]), size);
 	if(read != size)
 		throw exc_bad_file_read(f_path, read, size);
 
