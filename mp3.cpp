@@ -47,7 +47,7 @@ private:
 	void parse(const uchar* f_data, const size_t f_size);
 
 	template<typename T>
-	bool tryCreateIfEmpty(const uchar* f_data, size_t& ioSize, size_t& ioOffset, std::shared_ptr<T>& f_outTag)
+	static bool tryCreateIfEmpty(const uchar* f_data, size_t& ioSize, size_t& ioOffset, std::shared_ptr<T>& f_outTag)
 	{
 		if(f_outTag != nullptr)
 			return false;
