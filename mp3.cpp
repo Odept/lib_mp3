@@ -37,7 +37,7 @@ public:
 	std::shared_ptr<Tag::IAPE>		tagAPE		() const final override { return m_ape;		}
 	std::shared_ptr<Tag::ILyrics>	tagLyrics	() const final override { return m_lyrics;	}
 
-	bool							isCononical	() const final override { return m_mpeg && !m_warnings; }
+	bool							isCanonical	() const final override { return m_mpeg && !m_warnings; }
 
 	bool							serialize	(const std::string& /*f_path*/) final override { ASSERT(!"Not implemented"); }
 

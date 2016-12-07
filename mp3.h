@@ -29,7 +29,7 @@ public:
 	virtual std::shared_ptr<Tag::IAPE>		tagAPE		() const = 0;
 	virtual std::shared_ptr<Tag::ILyrics>	tagLyrics	() const = 0;
 
-	virtual bool							isCononical	() const = 0;
+	virtual bool							isCanonical	() const = 0;
 
 	virtual bool							serialize	(const std::string& f_path) = 0;
 
