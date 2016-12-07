@@ -76,7 +76,8 @@ namespace Tag
 		static std::shared_ptr<IID3v2>	create	();
 
 	public:
-		virtual unsigned			getVersion			() const					= 0;
+		virtual unsigned			getMinorVersion		() const					= 0;
+		virtual unsigned			getRevision			() const					= 0;
 
 		virtual const std::string&	getTrack			() const					= 0;
 		virtual void				setTrack			(const std::string& f_str)	= 0;
