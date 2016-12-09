@@ -45,7 +45,7 @@ namespace MPEG
 		static const std::string&		str						(Emphasis f_emphasis);
 
 	public:
-		virtual unsigned int	getSize			() const = 0;
+		virtual size_t			getSize			() const = 0;
 		virtual unsigned int	getFrameCount	() const = 0;
 		virtual float			getLength		() const = 0;
 
@@ -57,7 +57,7 @@ namespace MPEG
 		virtual ChannelMode		getChannelMode	() const = 0;
 		virtual Emphasis		getEmphasis		() const = 0;
 
-		virtual unsigned int	getFrameOffset	(unsigned int f_index) const = 0;
+		virtual size_t			getFrameOffset	(unsigned int f_index) const = 0;
 		virtual unsigned int	getFrameSize	(unsigned int f_index) const = 0;
 		virtual float			getFrameTime	(unsigned int f_index) const = 0;
 
