@@ -16,22 +16,6 @@ namespace Tag
 	};
 
 
-	class IAPE : public ISerialize
-	{
-	public:
-		static size_t					getSize	(const unsigned char* f_data, size_t f_size);
-		static std::shared_ptr<IAPE>	create	(const unsigned char* f_data, size_t f_size);
-	};
-
-
-	class ILyrics : public ISerialize
-	{
-	public:
-		static size_t					getSize	(const unsigned char* f_data, size_t f_size);
-		static std::shared_ptr<ILyrics>	create	(const unsigned char* f_data, size_t f_size);
-	};
-
-
 	class IID3v1 : public ISerialize
 	{
 	public:
@@ -137,6 +121,22 @@ namespace Tag
 		virtual const std::string&					getPictureDescription	() const	= 0;
 
 		virtual	std::vector<std::string>			getUnknownFrames		() const	= 0;
+	};
+
+
+	class IAPE : public ISerialize
+	{
+	public:
+		static size_t					getSize	(const unsigned char* f_data, size_t f_size);
+		static std::shared_ptr<IAPE>	create	(const unsigned char* f_data, size_t f_size);
+	};
+
+
+	class ILyrics : public ISerialize
+	{
+	public:
+		static size_t					getSize	(const unsigned char* f_data, size_t f_size);
+		static std::shared_ptr<ILyrics>	create	(const unsigned char* f_data, size_t f_size);
 	};
 }
 
