@@ -45,6 +45,8 @@ namespace MPEG
 		static const std::string&		str						(Emphasis f_emphasis);
 
 	public:
+		virtual bool			hasWarnings		() const = 0;
+
 		virtual size_t			getSize			() const = 0;
 		virtual unsigned int	getFrameCount	() const = 0;
 		virtual float			getLength		() const = 0;
@@ -64,7 +66,7 @@ namespace MPEG
 		// returns the number of deleted frames
 		virtual unsigned int	truncate		(unsigned int f_frames) = 0;
 
-		virtual					~IStream		() {}
+		virtual					~IStream		();
 	};
 }
 

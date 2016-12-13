@@ -2,6 +2,7 @@
 
 
 #include <vector>
+#include <string>
 #include <memory>
 
 
@@ -12,7 +13,7 @@ namespace Tag
 	public:
 		virtual void serialize(std::vector<unsigned char>& f_outStream) = 0;
 
-		virtual ~ISerialize() {}
+		virtual ~ISerialize();
 	};
 
 
@@ -47,8 +48,6 @@ namespace Tag
 
 		virtual unsigned			getGenreIndex		() const					= 0;
 		virtual void				setGenreIndex		(unsigned f_index)			= 0;
-		virtual const std::string&	getGenre			() const					= 0;
-		//virtual void				setGenre			(std::string& f_str)		= 0;
 	};
 
 
@@ -88,11 +87,12 @@ namespace Tag
 		virtual const std::string&	getYear				() const					= 0;
 		virtual void				setYear				(const std::string& f_str)	= 0;
 
-		virtual const std::string	getGenre			() const					= 0;
-		virtual const std::string&	getGenreEx			() const					= 0;
-		virtual bool				isExtendedGenre		() const					= 0;
+		virtual int					getGenreIndex		() const					= 0;
+		virtual void				setGenreIndex		(unsigned f_index)			= 0;
+		virtual const std::string&	getGenre			() const					= 0;
 		virtual void				setGenre			(const std::string& f_text)	= 0;
-		virtual void				setGenre			(unsigned f_index)			= 0;
+		// True when "(index)text" is supplied and index != text
+		virtual bool				isExtendedGenre		() const					= 0;
 
 		virtual const std::string&	getComment			() const					= 0;
 		virtual void				setComment			(const std::string& f_str)	= 0;
@@ -138,5 +138,9 @@ namespace Tag
 		static size_t					getSize	(const unsigned char* f_data, size_t f_size);
 		static std::shared_ptr<ILyrics>	create	(const unsigned char* f_data, size_t f_size);
 	};
+
+
+	const std::string&	genre(unsigned f_index);
+	int					genre(const std::string& f_text);
 }
 
