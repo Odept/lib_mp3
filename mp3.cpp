@@ -1,16 +1,19 @@
-// ASSERTs to throw everywhere, including libraries
 #include "mp3.h"
 
 #include "External/inc/mpeg.h"
 #include "External/inc/tag.h"
  
 #include <fstream>
+#include <sstream>
+
+#define __STR_INTERNAL(x) #x
+#define __STR(x) __STR_INTERNAL(x)
+#define STR__LINE__ __STR(__LINE__)
+#define ASSERT(X)	if(!(X)) throw std::logic_error(#X " @ " __FILE__ ":" STR__LINE__)
 
 #include <iostream>
 #define OUT_HEX(X)	std::hex << (X) << std::dec
-#define ASSERT(X)	if(!(X)) { std::cout << "Abort @ " << __FILE__ << ":" << __LINE__ << ": \"" << #X << "\"" << std::endl; std::abort(); }
-#define ERROR(X)	do { std::cerr << "ERROR: " << X << std::endl; } while(0)
-#define WARNING(X)	do { std::cerr << "WARNING: " << X << std::endl; } while(0)
+#define WARNING(X)	do { std::cerr << "WARNING @ " << __FILE__ << ":" << __LINE__ << ": " << X << std::endl; ++m_warnings; } while(0)
 
 
 using uint		= unsigned int;
@@ -37,7 +40,10 @@ public:
 	std::shared_ptr<Tag::IAPE>		tagAPE		() const final override { return m_ape;		}
 	std::shared_ptr<Tag::ILyrics>	tagLyrics	() const final override { return m_lyrics;	}
 
-	bool							isCanonical	() const final override { return m_mpeg && !m_warnings; }
+	bool							hasWarnings		() const final override
+	{
+		return (m_mpeg && m_mpeg->hasWarnings()) || m_warnings;
+	}
 
 	bool							serialize	(const std::string& /*f_path*/) final override { ASSERT(!"Not implemented"); }
 
@@ -184,7 +190,6 @@ void CMP3::parse(const uchar* f_data, const size_t f_size)
 					continue;
 
 				WARNING("APE tag in the last MPEG frame @ " << (uLastOffset + o) << " (0x" << OUT_HEX(uLastOffset + o) << ") - keep the tag, discard the frame");
-				++m_warnings;
 
 				auto removed = m_mpeg->truncate(1);
 				ASSERT(removed == 1);
@@ -202,10 +207,7 @@ void CMP3::parse(const uchar* f_data, const size_t f_size)
 		if( tryCreateIfEmpty(pData, unprocessed, offset, m_id3v1) )
 		{
 			if(unprocessed)
-			{
 				WARNING("ID3v1 tag @ invalid offset " << offset << " (0x" << OUT_HEX(offset) << ')');
-				++m_warnings;
-			}
 			continue;
 		}
 		if( tryCreateIfEmpty(pData, unprocessed, offset, m_id3v2) )
@@ -227,7 +229,6 @@ void CMP3::parse(const uchar* f_data, const size_t f_size)
 		if( MPEG::IStream::isIncompleteFrame(pData, unprocessed) )
 		{
 			WARNING("Unexpected end of frame @ " << offset << " (0x" << OUT_HEX(offset) << ") - discard");
-			++m_warnings;
 
 			offset += unprocessed;
 			unprocessed -= unprocessed;
