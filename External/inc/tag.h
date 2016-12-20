@@ -26,6 +26,8 @@ namespace Tag
 		static std::shared_ptr<IID3v1>	create	();
 
 	public:
+		virtual size_t				getSize				() const					= 0;
+
 		virtual bool				isV11				() const					= 0;
 
 		virtual const std::string&	getTitle			() const					= 0;
@@ -59,6 +61,8 @@ namespace Tag
 		static std::shared_ptr<IID3v2>	create	();
 
 	public:
+		virtual size_t				getSize				() const					= 0;
+
 		virtual unsigned			getMinorVersion		() const					= 0;
 		virtual unsigned			getRevision			() const					= 0;
 
@@ -129,6 +133,8 @@ namespace Tag
 	public:
 		static size_t					getSize	(const unsigned char* f_data, size_t f_size);
 		static std::shared_ptr<IAPE>	create	(const unsigned char* f_data, size_t f_size);
+
+		virtual size_t					getSize	() const	= 0;
 	};
 
 
@@ -137,6 +143,8 @@ namespace Tag
 	public:
 		static size_t					getSize	(const unsigned char* f_data, size_t f_size);
 		static std::shared_ptr<ILyrics>	create	(const unsigned char* f_data, size_t f_size);
+
+		virtual size_t					getSize	() const	= 0;
 	};
 
 

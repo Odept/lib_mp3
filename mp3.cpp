@@ -3,6 +3,7 @@
 #include "External/inc/mpeg.h"
 #include "External/inc/tag.h"
  
+#include <unordered_map>
 #include <fstream>
 #include <sstream>
 
@@ -36,19 +37,40 @@ public:
 	CMP3(const std::string& f_path);
 	CMP3(const uchar* f_data, const size_t f_size): CMP3() { parse(f_data, f_size); }
 
-	std::shared_ptr<MPEG::IStream>	mpegStream	() const final override { return m_mpeg;	}
+	std::shared_ptr<MPEG::IStream>	mpegStream		() const final override { return m_mpeg;	}
 
-	std::shared_ptr<Tag::IID3v1>	tagID3v1	() const final override { return m_id3v1;	}
-	std::shared_ptr<Tag::IID3v2>	tagID3v2	() const final override { return m_id3v2;	}
-	std::shared_ptr<Tag::IAPE>		tagAPE		() const final override { return m_ape;		}
-	std::shared_ptr<Tag::ILyrics>	tagLyrics	() const final override { return m_lyrics;	}
+	std::shared_ptr<Tag::IID3v1>	tagID3v1		() const final override { return m_id3v1;	}
+	std::shared_ptr<Tag::IID3v2>	tagID3v2		() const final override { return m_id3v2;	}
+	std::shared_ptr<Tag::IAPE>		tagAPE			() const final override { return m_ape;		}
+	std::shared_ptr<Tag::ILyrics>	tagLyrics		() const final override { return m_lyrics;	}
+
+	unsigned						mpegStreamOffset() const final override { return m_offsets.at(DataType::MPEG		); }
+	unsigned						tagID3v1Offset	() const final override { return m_offsets.at(DataType::TagID3v1	); }
+	unsigned						tagID3v2Offset	() const final override { return m_offsets.at(DataType::TagID3v2	); }
+	unsigned						tagAPEOffset	() const final override { return m_offsets.at(DataType::TagAPE		); }
+	unsigned						tagLyricsOffset	() const final override { return m_offsets.at(DataType::TagLyrics	); }
 
 	bool							hasWarnings		() const final override
 	{
 		return (m_mpeg && m_mpeg->hasWarnings()) || m_warnings;
 	}
 
-	bool							serialize	(const std::string& /*f_path*/) final override { ASSERT(!"Not implemented"); }
+	bool							serialize		(const std::string& /*f_path*/) final override
+	{
+		ASSERT(!"Not implemented");
+	}
+
+private:
+	enum class DataType : unsigned
+	{
+		MPEG, TagID3v1, TagID3v2, TagAPE, TagLyrics
+	};
+	template<typename T>
+	struct EnumHasher
+	{
+		unsigned operator()(const T& f_key) const { return static_cast<unsigned>(f_key); }
+	};
+	using offsets_t = std::unordered_map<DataType, unsigned, EnumHasher<DataType>>;
 
 private:
 	explicit CMP3(): m_warnings(0) {}
@@ -56,7 +78,7 @@ private:
 	void parse(const uchar* f_data, const size_t f_size);
 
 	template<typename T>
-	static bool tryCreateIfEmpty(const uchar* f_data, size_t& ioSize, size_t& ioOffset, std::shared_ptr<T>& f_outTag)
+	bool tryCreateIfEmpty(DataType f_type, const uchar* f_data, size_t& ioSize, size_t& ioOffset, std::shared_ptr<T>& f_outTag)
 	{
 		if(f_outTag != nullptr)
 			return false;
@@ -66,6 +88,7 @@ private:
 			return false;
 
 		f_outTag = T::create(f_data, tagSize);
+		m_offsets[f_type] = ioOffset;
 		//m_dataMap.push_back( DataMapEntry(DMET_TAG_ID3v1, offset) );
 
 		ioOffset += tagSize;
@@ -76,12 +99,13 @@ private:
 
 private:
 	std::shared_ptr<MPEG::IStream>	m_mpeg;
-
 	// Tags
 	std::shared_ptr<Tag::IID3v1>	m_id3v1;
 	std::shared_ptr<Tag::IID3v2>	m_id3v2;
 	std::shared_ptr<Tag::IAPE>		m_ape;
 	std::shared_ptr<Tag::ILyrics>	m_lyrics;
+
+	offsets_t						m_offsets;
 
 	uint							m_warnings;
 
@@ -186,6 +210,7 @@ void CMP3::parse(const uchar* f_data, const size_t f_size)
 		if(!m_mpeg && MPEG::IStream::verifyFrameSequence(pData, unprocessed))
 		{
 			m_mpeg = MPEG::IStream::create(pData, unprocessed);
+			m_offsets[DataType::MPEG] = offset;
 			//m_dataMap.push_back( DataMapEntry(DMET_MPEG, offset) );
 
 			// Check the last frame for the invalid data
@@ -213,17 +238,17 @@ void CMP3::parse(const uchar* f_data, const size_t f_size)
 		}
 
 		// Tags
-		if( tryCreateIfEmpty(pData, unprocessed, offset, m_id3v1) )
+		if( tryCreateIfEmpty(DataType::TagID3v1, pData, unprocessed, offset, m_id3v1) )
 		{
 			if(unprocessed)
 				WARNING("ID3v1 tag @ invalid offset " << offset << " (0x" << OUT_HEX(offset) << ')');
 			continue;
 		}
-		if( tryCreateIfEmpty(pData, unprocessed, offset, m_id3v2) )
+		if( tryCreateIfEmpty(DataType::TagID3v2, pData, unprocessed, offset, m_id3v2) )
 			continue;
-		if( tryCreateIfEmpty(pData, unprocessed, offset, m_ape) )
+		if( tryCreateIfEmpty(DataType::TagAPE, pData, unprocessed, offset, m_ape) )
 			continue;
-		if( tryCreateIfEmpty(pData, unprocessed, offset, m_lyrics) )
+		if( tryCreateIfEmpty(DataType::TagLyrics, pData, unprocessed, offset, m_lyrics) )
 			continue;
 
 		// Check for padding nulls
