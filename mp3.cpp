@@ -28,7 +28,10 @@ class CMP3 : public IMP3
 {
 public:
 	template<typename... Args >
-	static std::shared_ptr<CMP3> create(Args&&... args);
+	static std::shared_ptr<CMP3> create(Args&&... args)
+	{
+		return std::make_shared<CMP3>(std::forward<Args>(args)...);
+	}
 
 	CMP3(const std::string& f_path);
 	CMP3(const uchar* f_data, const size_t f_size): CMP3() { parse(f_data, f_size); }
@@ -104,43 +107,49 @@ private:
 	std::vector<DataMepEntry> m_dataMap;*/
 
 	// Exceptions
-public:
-	class exc_bad_data : public std::exception
+private:
+	class exc_mp3 : public IMP3::exception
 	{
 	public:
-		exc_bad_data(size_t offset): m_offset(offset) {}
-		size_t offset() const { return m_offset; }
-
-	private:
-		const size_t m_offset;
+		const char* what() const noexcept final override { return m_text.c_str(); }
+	protected:
+		std::string m_text;
 	};
 
 
-	class exc_bad_file : public std::exception
+	class exc_bad_data : public exc_mp3
 	{
 	public:
-		exc_bad_file(const std::string& f_path): m_path(f_path) {}
-		const std::string& file() const { return m_path; }
-
-	private:
-		std::string m_path;
+		exc_bad_data(size_t f_offset)
+		{
+			std::ostringstream oss;
+			oss << "Unsupported data @ " << f_offset << " (0x" << OUT_HEX(f_offset) << ')';
+			m_text = oss.str();
+		}
 	};
 
 
-	class exc_bad_file_read : public exc_bad_file
+	class exc_bad_file : public exc_mp3
 	{
 	public:
-		exc_bad_file_read(const std::string& f_path, size_t f_actual, size_t f_expected):
-			exc_bad_file(f_path),
-			m_actual(f_actual),
-			m_expected(f_expected)
-		{}
-		size_t actual() const { return m_actual; }
-		size_t expected() const { return m_expected; }
+		exc_bad_file(const std::string& f_path)
+		{
+			std::ostringstream oss;
+			oss << "Failed to open \"" << f_path << '"';
+			m_text = oss.str();
+		}
+	};
 
-	private:
-		size_t m_actual;
-		size_t m_expected;
+
+	class exc_bad_file_read : public exc_mp3 //exc_bad_file
+	{
+	public:
+		exc_bad_file_read(const std::string& f_path, size_t f_actual, size_t f_expected)
+		{
+			std::ostringstream oss;
+			oss << "Failed to read file \"" << f_path << "\" (" << f_actual << " of " << f_expected << " bytes read)";
+			m_text = oss.str();
+		}
 	};
 };
 
@@ -237,36 +246,6 @@ void CMP3::parse(const uchar* f_data, const size_t f_size)
 
 		throw exc_bad_data(offset);
 	}
-}
-
-
-template<typename... Args >
-std::shared_ptr<CMP3> CMP3::create(Args&&... args)
-{
-	std::shared_ptr<CMP3> sp;
-
-	try
-	{
-		sp = std::make_shared<CMP3>(std::forward<Args>(args)...);
-	}
-	catch(const exc_bad_file_read& e)
-	{
-		ERROR("Failed to read file \"" << e.file() << "\" (" << e.actual() << " of " << e.expected() << " bytes read)");
-	}
-	catch(const exc_bad_file& e)
-	{
-		ERROR("Failed to open \"" << e.file() << '"');
-	}
-	catch(const exc_bad_data& e)
-	{
-		ERROR("Unsupported data @ " << e.offset() << " (0x" << OUT_HEX(e.offset()) << ')');
-	}
-	catch(...)
-	{
-		ASSERT(!"unexpected");
-	}
-
-	return sp;
 }
 
 /******************************************************************************

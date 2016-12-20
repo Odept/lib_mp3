@@ -35,5 +35,11 @@ public:
 
 	virtual ~IMP3();
 
+public:
+	class exception : public std::exception
+	{
+	public:
+		const char* what() const noexcept override = 0;
+	};
 };
 
