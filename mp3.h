@@ -33,6 +33,7 @@ public:
 
 	virtual bool							serialize	(const std::string& f_path) = 0;
 
-	virtual ~IMP3() {}
+	virtual ~IMP3();
+
 };
 

@@ -282,3 +282,5 @@ std::shared_ptr<IMP3> IMP3::create(const std::string& f_path)
 	return CMP3::create(f_path);
 }
 
+IMP3::~IMP3() {}
+
