@@ -18,7 +18,7 @@ default: $(TARGET).a
 
 $(TARGET).a: $(TARGET).o $(LIB_MPEG) $(LIB_TAG)
 	# Delete an old archive to avoid strange warnings
-	rm $(TARGET).a
+	rm -f $(TARGET).a
 	@echo "# generate" \"$(TARGET)\"
 	$(AR) xv $(LIB_MPEG)
 	$(AR) xv $(LIB_TAG)
