@@ -7,6 +7,7 @@
 #include <fstream>
 #include <sstream>
 
+
 #define __STR_INTERNAL(x) #x
 #define __STR(x) __STR_INTERNAL(x)
 #define STR__LINE__ __STR(__LINE__)
@@ -22,10 +23,7 @@ using ushort	= unsigned short;
 using uchar		= unsigned char;
 
 
-/******************************************************************************
- * CMP3
- *****************************************************************************/
-class CMP3 : public IMP3
+class CMP3 final : public IMP3
 {
 public:
 	template<typename... Args >
@@ -89,7 +87,6 @@ private:
 
 		f_outTag = T::create(f_data, tagSize);
 		m_offsets[f_type] = ioOffset;
-		//m_dataMap.push_back( DataMapEntry(DMET_TAG_ID3v1, offset) );
 
 		ioOffset += tagSize;
 		ioSize -= tagSize;
@@ -109,27 +106,6 @@ private:
 	offsets_t						m_offsets;
 
 	uint							m_warnings;
-
-private:
-	/*enum DataMapEntryType
-	{
-		DET_TAG_v1,
-		DET_TAG_v2,
-		DET_TAG_APE
-		DET_TAG_LYRICS,
-		DET_MPEG,
-		DET_PADDING
-	};
-
-
-	struct DataMepEntry
-	{
-		sizr_t				Offset;
-		DataMapEntryType	Type;
-
-		DataMepEntry(size_t offset, DataMapEntryType type): Offset(offset), Type(type) {}
-	};
-	std::vector<DataMepEntry> m_dataMap;*/
 
 	// Exceptions
 private:
@@ -307,9 +283,7 @@ void CMP3::parse(const uchar* f_data, const size_t f_size)
 		WARNING("no MPEG stream");
 }
 
-/******************************************************************************
- * IMP3
- *****************************************************************************/
+// ============================================================================
 std::shared_ptr<IMP3> IMP3::create(const unsigned char* f_data, size_t f_size)
 {
 	return CMP3::create(f_data, f_size);
