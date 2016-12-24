@@ -98,6 +98,7 @@ private:
 	}
 
 private:
+	std::vector<uchar>				m_vPreStream;
 	std::shared_ptr<MPEG::IStream>	m_mpeg;
 	// Tags
 	std::shared_ptr<Tag::IID3v1>	m_id3v1;
@@ -258,19 +259,52 @@ void CMP3::parse(const uchar* f_data, const size_t f_size)
 			--unprocessed;
 			continue;
 		}
-			
-		// Check for an incomplete frame
-		if( MPEG::IStream::isIncompleteFrame(pData, unprocessed) )
-		{
-			WARNING("Unexpected end of frame @ " << offset << " (0x" << OUT_HEX(offset) << ") - discard");
 
-			offset += unprocessed;
-			unprocessed -= unprocessed;
-			continue;
+		if(m_mpeg)
+		{
+			// Check for an incomplete frame
+			if( MPEG::IStream::isIncompleteFrame(pData, unprocessed) )
+			{
+				WARNING("unexpected end of frame @ " << offset << " (0x" << OUT_HEX(offset) << ") - discard");
+
+				offset += unprocessed;
+				unprocessed -= unprocessed;
+				continue;
+			}
+		}
+		else
+		{
+			// Pre MPEG stream garbage?
+			ASSERT(m_vPreStream.empty());
+
+			auto uPrev = unprocessed;
+			for(auto p = pData; unprocessed; ++offset, --unprocessed, ++p)
+			{
+				if(MPEG::IStream::verifyFrameSequence(p, unprocessed))
+					break;
+
+				ASSERT(Tag::IID3v1	::getSize(p, unprocessed) == 0);
+				ASSERT(Tag::IID3v2	::getSize(p, unprocessed) == 0);
+				ASSERT(Tag::IAPE	::getSize(p, unprocessed) == 0);
+				ASSERT(Tag::ILyrics	::getSize(p, unprocessed) == 0);
+			}
+
+			if(unprocessed)
+			{
+				auto sz = uPrev - unprocessed;
+				WARNING(sz << " (0x" << OUT_HEX(sz) << ") bytes of garbage before the MPEG stream");
+
+				m_vPreStream.resize(sz);
+				memcpy(&m_vPreStream[0], pData, sz);
+				continue;
+			}
 		}
 
 		throw exc_bad_data(offset);
 	}
+
+	if(!m_mpeg)
+		WARNING("no MPEG stream");
 }
 
 /******************************************************************************
