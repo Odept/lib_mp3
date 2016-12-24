@@ -50,9 +50,9 @@ public:
 	unsigned						tagAPEOffset	() const final override { return m_offsets.at(DataType::TagAPE		); }
 	unsigned						tagLyricsOffset	() const final override { return m_offsets.at(DataType::TagLyrics	); }
 
-	bool							hasWarnings		() const final override
+	bool							hasIssues		() const final override
 	{
-		return (m_mpeg && m_mpeg->hasWarnings()) || m_warnings;
+		return (m_mpeg && m_mpeg->hasIssues()) || (m_id3v2 && m_id3v2->hasIssues()) || m_warnings;
 	}
 
 	bool							serialize		(const std::string& /*f_path*/) final override
