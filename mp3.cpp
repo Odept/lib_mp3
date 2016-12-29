@@ -176,6 +176,20 @@ CMP3::CMP3(const std::string& f_path):
 }
 
 
+template<typename T>
+static uint findTag(const uchar* f_data, size_t f_size, size_t f_scanSize)
+{
+	uint rfo = 0; // Relative Frame Offset
+
+	for(size_t sz = f_size, n = f_scanSize; sz && n; ++rfo, --sz, --n)
+	{
+		if( T::getSize(f_data + rfo, sz) )
+			return rfo;
+	}
+
+	return f_scanSize;
+}
+
 void CMP3::parse(const uchar* f_data, const size_t f_size)
 {
 	for(size_t offset = 0, unprocessed = f_size; offset < f_size;)
@@ -188,29 +202,46 @@ void CMP3::parse(const uchar* f_data, const size_t f_size)
 		{
 			m_mpeg = MPEG::IStream::create(pData, unprocessed);
 			m_offsets[DataType::MPEG] = offset;
-			//m_dataMap.push_back( DataMapEntry(DMET_MPEG, offset) );
 
-			// Check the last frame for the invalid data
+			// Check the last frame for unexpected data
 			ASSERT(m_mpeg->getFrameCount());
-			uint uLast = m_mpeg->getFrameCount() - 1;
-			uint uLastOffset = offset + m_mpeg->getFrameOffset(uLast);
+			auto uLast = m_mpeg->getFrameCount() - 1;
+			auto uRelLastOffset = m_mpeg->getFrameOffset(uLast);
 
-			for(uint o = 0, n = m_mpeg->getFrameSize(uLast); n; o++, n--)
+			uint o;
+			do
 			{
-				if(Tag::IAPE::getSize(f_data + uLastOffset + o, n) == 0)
-					continue;
+				auto uLastOffset = offset + uRelLastOffset;
+				auto uLastSize = m_mpeg->getFrameSize(uLast);
+				auto size = unprocessed - uRelLastOffset;
 
-				WARNING("APE tag in the last MPEG frame @ " << (uLastOffset + o) << " (0x" << OUT_HEX(uLastOffset + o) << ") - keep the tag, discard the frame");
+				// APE
+				o = findTag<Tag::IAPE>(pData + uRelLastOffset, size, uLastSize);
+				if(o < uLastSize)
+				{
+					WARNING("APE tag in the last MPEG frame @ " << (uLastOffset + o) << " (0x" << OUT_HEX(uLastOffset + o) << ") - keep the tag, discard the frame");
+					auto removed = m_mpeg->truncate(1);
+					ASSERT(removed == 1);
+					ASSERT(uRelLastOffset == m_mpeg->getSize());
+					break;
+				}
 
-				auto removed = m_mpeg->truncate(1);
-				ASSERT(removed == 1);
-				offset += o;
-				unprocessed -= o;
-				break;
+				// Lyrics
+				o = findTag<Tag::ILyrics>(pData + uRelLastOffset, size, uLastSize);
+				if(o < uLastSize)
+				{
+					WARNING("Lyrics tag in the last MPEG frame @ " << (uLastOffset + o) << " (0x" << OUT_HEX(uLastOffset + o) << ") - keep the tag, discard the frame");
+					auto removed = m_mpeg->truncate(1);
+					ASSERT(removed == 1);
+					ASSERT(uRelLastOffset == m_mpeg->getSize());
+					break;
+				}
 			}
+			while(0);
 
-			offset += m_mpeg->getSize();
-			unprocessed -= m_mpeg->getSize();
+			o += uRelLastOffset;
+			offset += o;
+			unprocessed -= o;
 			continue;
 		}
 
