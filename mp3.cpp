@@ -241,8 +241,7 @@ void CMP3::parse(const uchar* f_data, const size_t f_size)
 			// Check for an incomplete frame
 			if( MPEG::IStream::isIncompleteFrame(pData, unprocessed) )
 			{
-				WARNING("unexpected end of frame @ " << offset << " (0x" << OUT_HEX(offset) << ") - discard");
-
+				// The corresponding warning is emited by the MPEG library
 				offset += unprocessed;
 				unprocessed -= unprocessed;
 				continue;
