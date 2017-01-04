@@ -76,16 +76,16 @@ private:
 	void parse(const uchar* f_data, const size_t f_size);
 
 	template<typename T>
-	bool tryCreateIfEmpty(DataType f_type, const uchar* f_data, size_t& ioSize, size_t& ioOffset, std::shared_ptr<T>& f_outTag)
+	bool tryCreateIfEmpty(DataType f_type, const uchar* f_data, size_t& ioOffset, size_t& ioSize, std::shared_ptr<T>& f_outTag)
 	{
 		if(f_outTag != nullptr)
 			return false;
 
-		auto tagSize = T::getSize(f_data, ioSize);
+		auto tagSize = T::getSize(f_data, static_cast<size_t>(ioOffset), ioSize);
 		if(!tagSize)
 			return false;
 
-		f_outTag = T::create(f_data, tagSize);
+		f_outTag = T::create(f_data, static_cast<size_t>(ioOffset), tagSize);
 		m_offsets[f_type] = ioOffset;
 
 		ioOffset += tagSize;
@@ -179,11 +179,10 @@ CMP3::CMP3(const std::string& f_path):
 template<typename T>
 static uint findTag(const uchar* f_data, size_t f_size, size_t f_scanSize)
 {
-	uint rfo = 0; // Relative Frame Offset
-
-	for(size_t sz = f_size, n = f_scanSize; sz && n; ++rfo, --sz, --n)
+	for(size_t rfo = 0, sz = f_size, n = f_scanSize; sz && n; ++rfo, --sz, --n)
 	{
-		if( T::getSize(f_data + rfo, sz) )
+		// + Relative Frame Offset
+		if( T::getSize(f_data, rfo, sz) )
 			return rfo;
 	}
 
@@ -194,12 +193,13 @@ void CMP3::parse(const uchar* f_data, const size_t f_size)
 {
 	for(size_t offset = 0, unprocessed = f_size; offset < f_size;)
 	{
-		auto pData = f_data + offset;
 		ASSERT(unprocessed <= f_size);
 
 		// MPEG stream
-		if(!m_mpeg && MPEG::IStream::verifyFrameSequence(pData, unprocessed))
+		if(!m_mpeg && MPEG::IStream::verifyFrameSequence(f_data + offset, unprocessed))
 		{
+			auto pData = f_data + offset;
+
 			m_mpeg = MPEG::IStream::create(pData, unprocessed);
 			m_offsets[DataType::MPEG] = offset;
 
@@ -246,17 +246,18 @@ void CMP3::parse(const uchar* f_data, const size_t f_size)
 		}
 
 		// Tags
-		if( tryCreateIfEmpty(DataType::TagID3v1, pData, unprocessed, offset, m_id3v1) )
+		if( tryCreateIfEmpty(DataType::TagID3v1, f_data, offset, unprocessed, m_id3v1) )
 		{
+			auto o = offset - m_id3v1->getSize();
 			if(unprocessed)
-				WARNING("ID3v1 tag @ invalid offset " << offset << " (0x" << OUT_HEX(offset) << ')');
+				WARNING("ID3v1 tag @ invalid offset " << o << " (0x" << OUT_HEX(o) << ')');
 			continue;
 		}
-		if( tryCreateIfEmpty(DataType::TagID3v2, pData, unprocessed, offset, m_id3v2) )
+		if( tryCreateIfEmpty(DataType::TagID3v2, f_data, offset, unprocessed, m_id3v2) )
 			continue;
-		if( tryCreateIfEmpty(DataType::TagAPE, pData, unprocessed, offset, m_ape) )
+		if( tryCreateIfEmpty(DataType::TagAPE, f_data, offset, unprocessed, m_ape) )
 			continue;
-		if( tryCreateIfEmpty(DataType::TagLyrics, pData, unprocessed, offset, m_lyrics) )
+		if( tryCreateIfEmpty(DataType::TagLyrics, f_data, offset, unprocessed, m_lyrics) )
 			continue;
 
 		// Check for padding nulls
@@ -270,7 +271,7 @@ void CMP3::parse(const uchar* f_data, const size_t f_size)
 		if(m_mpeg)
 		{
 			// Check for an incomplete frame
-			if( MPEG::IStream::isIncompleteFrame(pData, unprocessed) )
+			if( MPEG::IStream::isIncompleteFrame(f_data + offset, unprocessed) )
 			{
 				// The corresponding warning is emited by the MPEG library
 				offset += unprocessed;
@@ -283,25 +284,27 @@ void CMP3::parse(const uchar* f_data, const size_t f_size)
 			// Pre MPEG stream garbage?
 			ASSERT(m_vPreStream.empty());
 
+			auto oPrev = offset;
 			auto uPrev = unprocessed;
-			for(auto p = pData; unprocessed; ++offset, --unprocessed, ++p)
+			for(; unprocessed; ++offset, --unprocessed)
 			{
-				if(MPEG::IStream::verifyFrameSequence(p, unprocessed))
+				if(MPEG::IStream::verifyFrameSequence(f_data + offset, unprocessed))
 					break;
 
-				ASSERT(Tag::IID3v1	::getSize(p, unprocessed) == 0);
-				ASSERT(Tag::IID3v2	::getSize(p, unprocessed) == 0);
-				ASSERT(Tag::IAPE	::getSize(p, unprocessed) == 0);
-				ASSERT(Tag::ILyrics	::getSize(p, unprocessed) == 0);
+				ASSERT(Tag::IID3v1	::getSize(f_data, offset, unprocessed) == 0);
+				ASSERT(Tag::IID3v2	::getSize(f_data, offset, unprocessed) == 0);
+				ASSERT(Tag::IAPE	::getSize(f_data, offset, unprocessed) == 0);
+				ASSERT(Tag::ILyrics	::getSize(f_data, offset, unprocessed) == 0);
 			}
 
 			if(unprocessed)
 			{
 				auto sz = uPrev - unprocessed;
-				WARNING(sz << " (0x" << OUT_HEX(sz) << ") bytes of garbage before the MPEG stream");
+				WARNING(sz << " (0x" << OUT_HEX(sz) << ") bytes of garbage before the MPEG stream @ " <<
+						oPrev << " (0x" << OUT_HEX(oPrev) << ')');
 
 				m_vPreStream.resize(sz);
-				memcpy(&m_vPreStream[0], pData, sz);
+				memcpy(&m_vPreStream[0], f_data + offset, sz);
 				continue;
 			}
 		}
