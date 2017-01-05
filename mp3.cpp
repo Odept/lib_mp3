@@ -76,12 +76,12 @@ private:
 	void parse(const uchar* f_data, const size_t f_size);
 
 	template<typename T>
-	bool tryCreateIfEmpty(DataType f_type, const uchar* f_data, size_t& ioOffset, size_t& ioSize, std::shared_ptr<T>& f_outTag)
+	bool tryCreateIfEmpty(DataType f_type, const uchar* f_data, size_t& ioOffset, size_t& ioSize, size_t f_tagSize, std::shared_ptr<T>& f_outTag)
 	{
-		if(f_outTag != nullptr)
+		if(f_outTag)
 			return false;
 
-		auto tagSize = T::getSize(f_data, static_cast<size_t>(ioOffset), ioSize);
+		auto tagSize = f_tagSize ? f_tagSize : T::getSize(f_data, static_cast<size_t>(ioOffset), static_cast<size_t>(ioSize));
 		if(!tagSize)
 			return false;
 
@@ -97,6 +97,7 @@ private:
 private:
 	std::vector<uchar>				m_vPreStream;
 	std::shared_ptr<MPEG::IStream>	m_mpeg;
+	std::vector<uchar>				m_vPostStream;
 	// Tags
 	std::shared_ptr<Tag::IID3v1>	m_id3v1;
 	std::shared_ptr<Tag::IID3v2>	m_id3v2;
@@ -182,8 +183,11 @@ static uint findTag(const uchar* f_data, size_t f_size, size_t f_scanSize)
 	for(size_t rfo = 0, sz = f_size, n = f_scanSize; sz && n; ++rfo, --sz, --n)
 	{
 		// + Relative Frame Offset
-		if( T::getSize(f_data, rfo, sz) )
+		if(auto tagSize = T::getSize(f_data, rfo, sz) )
+		{
+			ASSERT(f_data + rfo + tagSize >= f_data);
 			return rfo;
+		}
 	}
 
 	return f_scanSize;
@@ -246,18 +250,18 @@ void CMP3::parse(const uchar* f_data, const size_t f_size)
 		}
 
 		// Tags
-		if( tryCreateIfEmpty(DataType::TagID3v1, f_data, offset, unprocessed, m_id3v1) )
+		if( tryCreateIfEmpty(DataType::TagID3v1, f_data, offset, unprocessed, 0, m_id3v1) )
 		{
 			auto o = offset - m_id3v1->getSize();
 			if(unprocessed)
 				WARNING("ID3v1 tag @ invalid offset " << o << " (0x" << OUT_HEX(o) << ')');
 			continue;
 		}
-		if( tryCreateIfEmpty(DataType::TagID3v2, f_data, offset, unprocessed, m_id3v2) )
+		if( tryCreateIfEmpty(DataType::TagID3v2, f_data, offset, unprocessed, 0, m_id3v2) )
 			continue;
-		if( tryCreateIfEmpty(DataType::TagAPE, f_data, offset, unprocessed, m_ape) )
+		if( tryCreateIfEmpty(DataType::TagAPE, f_data, offset, unprocessed, 0, m_ape) )
 			continue;
-		if( tryCreateIfEmpty(DataType::TagLyrics, f_data, offset, unprocessed, m_lyrics) )
+		if( tryCreateIfEmpty(DataType::TagLyrics, f_data, offset, unprocessed, 0, m_lyrics) )
 			continue;
 
 		// Check for padding nulls
@@ -278,6 +282,34 @@ void CMP3::parse(const uchar* f_data, const size_t f_size)
 				unprocessed -= unprocessed;
 				continue;
 			}
+
+			// Post MPEG stream garbage?
+			ASSERT(m_vPostStream.empty());
+
+			auto oPrev = offset;
+			auto uPrev = unprocessed;
+			for(; unprocessed; ++offset, --unprocessed)
+			{
+				if( Tag::IAPE::getSize(f_data, offset, unprocessed) )
+					break;
+				if( Tag::IID3v1::getSize(f_data, offset, unprocessed) )
+					break;
+				if( Tag::ILyrics::getSize(f_data, offset, unprocessed) )
+					break;
+
+				ASSERT(Tag::IID3v2::getSize(f_data, offset, unprocessed) == 0);
+			}
+
+			// Might be zero if APE footer-only tag is found
+			if(auto sz = uPrev - unprocessed)
+			{
+				WARNING(sz << " (0x" << OUT_HEX(sz) << ") bytes of garbage after the MPEG stream @ " <<
+						oPrev << " (0x" << OUT_HEX(oPrev) << ')');
+
+				m_vPostStream.resize(sz);
+				memcpy(&m_vPostStream[0], f_data + oPrev, sz);
+			}
+			continue;
 		}
 		else
 		{
