@@ -195,6 +195,8 @@ static uint findTag(const uchar* f_data, size_t f_size, size_t f_scanSize)
 
 void CMP3::parse(const uchar* f_data, const size_t f_size)
 {
+	size_t preCalculatedTagAPEsize = 0;
+
 	for(size_t offset = 0, unprocessed = f_size; offset < f_size;)
 	{
 		ASSERT(unprocessed <= f_size);
@@ -259,8 +261,11 @@ void CMP3::parse(const uchar* f_data, const size_t f_size)
 		}
 		if( tryCreateIfEmpty(DataType::TagID3v2, f_data, offset, unprocessed, 0, m_id3v2) )
 			continue;
-		if( tryCreateIfEmpty(DataType::TagAPE, f_data, offset, unprocessed, 0, m_ape) )
+		if( tryCreateIfEmpty(DataType::TagAPE, f_data, offset, unprocessed, preCalculatedTagAPEsize, m_ape) )
+		{
+			preCalculatedTagAPEsize = 0;
 			continue;
+		}
 		if( tryCreateIfEmpty(DataType::TagLyrics, f_data, offset, unprocessed, 0, m_lyrics) )
 			continue;
 
@@ -290,8 +295,19 @@ void CMP3::parse(const uchar* f_data, const size_t f_size)
 			auto uPrev = unprocessed;
 			for(; unprocessed; ++offset, --unprocessed)
 			{
-				if( Tag::IAPE::getSize(f_data, offset, unprocessed) )
+				if(auto tagSize = Tag::IAPE::getSize(f_data, offset, unprocessed))
+				{
+					auto next = offset + tagSize;
+					// Handle footer-only APE tag
+					if(next < offset)
+					{
+						preCalculatedTagAPEsize = Tag::IAPE::getSize(f_data, next, tagSize);
+						offset = next;
+						unprocessed = uPrev - (offset - oPrev);
+					}
 					break;
+				}
+
 				if( Tag::IID3v1::getSize(f_data, offset, unprocessed) )
 					break;
 				if( Tag::ILyrics::getSize(f_data, offset, unprocessed) )
